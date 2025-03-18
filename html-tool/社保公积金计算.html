@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>社保公积金计算</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: inline-block;
+            width: 150px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>社保公积金计算</h1>
+
+    <div class="input-group">
+        <label>起始月份：</label>
+        <input type="month" id="startMonth">
+    </div>
+
+    <div class="input-group">
+        <label>结束月份：</label>
+        <input type="month" id="endMonth">
+    </div>
+
+    <div class="input-group">
+        <label>月均工资：</label>
+        <input type="number" id="averageSalary" min="0" value="10000" max="43659">
+    </div>
+
+    <div class="input-group">
+        <label>缴费档次：</label>
+        <select id="insuranceType" onchange="updateInsuranceBases()">
+            <option value="shenhu" selected>深户一档</option>
+            <option value="feishen1">非深户一档</option>
+            <option value="feishen2">非深户二档</option>
+            <option value="custom">自定义</option>
+        </select>
+    </div>
+
+    <div id="customBases"
+        style="display: none; margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
+        <h3 style="margin-top: 0;">自定义基数和比例</h3>
+        <div class="input-group">
+            <label>养老保险基数：</label>
+            <input type="number" id="customPensionBase" value="4492" min="0" max="43659">
+            <label style="margin-left: 20px;">个人比例：</label>
+            <input type="number" id="customPensionRate" value="8" min="0" max="100" step="0.1" style="width: 60px">%
+            <label style="margin-left: 20px;">单位比例：</label>
+            <input type="number" id="customCompanyPensionRate" value="16" min="0" max="100" step="0.1"
+                style="width: 60px">%
+        </div>
+        <div class="input-group">
+            <label>医疗保险基数：</label>
+            <input type="number" id="customMedicalBase" value="6733" min="0" max="43659">
+            <label style="margin-left: 20px;">个人比例：</label>
+            <input type="number" id="customMedicalRate" value="2" min="0" max="100" step="0.1" style="width: 60px">%
+            <label style="margin-left: 20px;">单位比例：</label>
+            <input type="number" id="customCompanyMedicalRate" value="5" min="0" max="100" step="0.1"
+                style="width: 60px">%
+        </div>
+        <div class="input-group">
+            <label>失业保险基数：</label>
+            <input type="number" id="customUnemploymentBase" value="2520" min="0" max="43659">
+            <label style="margin-left: 20px;">个人比例：</label>
+            <input type="number" id="customUnemploymentRate" value="0.3" min="0" max="100" step="0.1"
+                style="width: 60px">%
+            <label style="margin-left: 20px;">单位比例：</label>
+            <input type="number" id="customCompanyUnemploymentRate" value="0.7" min="0" max="100" step="0.1"
+                style="width: 60px">%
+        </div>
+        <div class="input-group">
+            <label>工伤保险基数：</label>
+            <input type="number" id="customInjuryBase" value="2520" min="0" max="43659">
+            <label style="margin-left: 20px;">单位比例：</label>
+            <input type="number" id="customCompanyInjuryRate" value="0.4" min="0" max="100" step="0.1"
+                style="width: 60px">%
+        </div>
+        <div class="input-group">
+            <label>生育保险基数：</label>
+            <input type="number" id="customMaternityBase" value="6733" min="0" max="43659">
+            <label style="margin-left: 20px;">单位比例：</label>
+            <input type="number" id="customCompanyMaternityRate" value="0.5" min="0" max="100" step="0.1"
+                style="width: 60px">%
+        </div>
+    </div>
+
+    <div id="insuranceInfo" style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
+        <h3 style="margin-top: 0;">缴费基数信息</h3>
+        <div id="insuranceDetails"></div>
+    </div>
+
+    <div class="input-group">
+        <label>公积金基数：</label>
+        <input type="number" id="fundBase" min="0" value="2360" max="43659">
+    </div>
+
+    <div class="input-group">
+        <label>公积金比例：</label>
+        <input type="number" id="fundRate" value="5" min="0" max="100" step="0.01">%
+    </div>
+
+    <button onclick="calculate()">计算</button>
+
+    <div id="result-group" style="display: none;">
+        <table id="resultTable">
+            <thead>
+                <tr>
+                    <th rowspan="3">月份</th>
+                    <th colspan="16">按基数缴纳</th>
+                </tr>
+                <tr>
+                    <th colspan="6">个人部分</th>
+                    <th colspan="6">公司部分</th>
+                    <th colspan="2">小计</th>
+                </tr>
+                <tr>
+                    <!-- <th>基数</th> -->
+                    <th>养老(<span class="pension-rate">8</span>%)</th>
+                    <th>医疗(<span class="medical-rate">2</span>%)</th>
+                    <th>失业(<span class="unemployment-rate">0.5</span>%)</th>
+                    <th>工伤(0.4%)</th>
+                    <th>生育(0.5%)</th>
+                    <th>公积金(<span class="fund-rate">12</span>%)</th>
+                    <!-- <th>基数</th> -->
+                    <th>养老(16%)</th>
+                    <th>医疗(8%)</th>
+                    <th>失业(0.5%)</th>
+                    <th>工伤(0.4%)</th>
+                    <th>生育(0.5%)</th>
+                    <th>公积金(<span class="fund-rate">12</span>%)</th>
+                    <th>个人</th>
+                    <th>公司</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <table id="salaryTable" style="margin-top: 30px;">
+            <thead>
+                <tr>
+                    <th rowspan="3">月份</th>
+                    <th colspan="16">按工资缴纳</th>
+                </tr>
+                <tr>
+                    <th colspan="6">个人部分</th>
+                    <th colspan="6">公司部分</th>
+                    <th colspan="2">小计</th>
+                </tr>
+                <tr>
+                    <!-- <th>基数</th> -->
+                    <th>养老(<span class="pension-rate">8</span>%)</th>
+                    <th>医疗(<span class="medical-rate">2</span>%)</th>
+                    <th>失业(<span class="unemployment-rate">0.5</span>%)</th>
+                    <th>工伤(0.4%)</th>
+                    <th>生育(0.5%)</th>
+                    <th>公积金(<span class="fund-rate">12</span>%)</th>
+                    <!-- <th>基数</th> -->
+                    <th>养老(16%)</th>
+                    <th>医疗(8%)</th>
+                    <th>失业(0.5%)</th>
+                    <th>工伤(0.4%)</th>
+                    <th>生育(0.5%)</th>
+                    <th>公积金(<span class="fund-rate">12</span>%)</th>
+                    <th>个人</th>
+                    <th>公司</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <table id="differenceTable" style="margin-top: 30px;">
+            <thead>
+                <tr>
+                    <th rowspan="2">月份</th>
+                    <th colspan="7">个人部分差额</th>
+                    <th colspan="7">公司部分差额</th>
+                </tr>
+                <tr>
+                    <th>养老保险</th>
+                    <th>医疗保险</th>
+                    <th>失业保险</th>
+                    <th>工伤保险</th>
+                    <th>生育保险</th>
+                    <th>公积金</th>
+                    <th>小计</th>
+                    <th>养老保险</th>
+                    <th>医疗保险</th>
+                    <th>失业保险</th>
+                    <th>工伤保险</th>
+                    <th>生育保险</th>
+                    <th>公积金</th>
+                    <th>小计</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <script>
+        // 页面加载时恢复上次的输入值和更新表头比例
+        window.onload = function () {
+            const inputs = ['startMonth', 'endMonth', 'averageSalary', 'insuranceType',
+                'fundBase', 'fundRate',
+                // 添加自定义输入项
+                'customPensionBase', 'customPensionRate', 'customCompanyPensionRate',
+                'customMedicalBase', 'customMedicalRate', 'customCompanyMedicalRate',
+                'customUnemploymentBase', 'customUnemploymentRate', 'customCompanyUnemploymentRate',
+                'customInjuryBase', 'customCompanyInjuryRate',
+                'customMaternityBase', 'customCompanyMaternityRate'
+            ];
+            inputs.forEach(id => {
+                const value = localStorage.getItem(id);
+                if (value) {
+                    document.getElementById(id).value = value;
+                }
+            });
+
+            // 更新表头显示的比例
+            ['fundRate'].forEach(id => {
+                const value = document.getElementById(id).value;
+                const className = id.replace('Rate', '-rate');
+                document.querySelectorAll('.' + className).forEach(span => {
+                    span.textContent = value;
+                });
+            });
+            updateInsuranceBases();
+        };
+
+        // 监听输入变化并保存，同时更新表头比例
+        ['fundRate'].forEach(id => {
+            document.getElementById(id).addEventListener('change', function () {
+                localStorage.setItem(id, this.value);
+                // 更新表头显示的比例
+                const value = this.value;
+                const className = id.replace('Rate', '-rate');
+                document.querySelectorAll('.' + className).forEach(span => {
+                    span.textContent = value;
+                });
+            });
+        });
+
+        // 其他输入项的变化监听
+        ['startMonth', 'endMonth', 'averageSalary', 'insuranceType', 'fundBase',
+            // 添加自定义输入项
+            'customPensionBase', 'customPensionRate', 'customCompanyPensionRate',
+            'customMedicalBase', 'customMedicalRate', 'customCompanyMedicalRate',
+            'customUnemploymentBase', 'customUnemploymentRate', 'customCompanyUnemploymentRate',
+            'customInjuryBase', 'customCompanyInjuryRate',
+            'customMaternityBase', 'customCompanyMaternityRate'
+        ].forEach(id => {
+            document.getElementById(id).addEventListener('change', function () {
+                localStorage.setItem(id, this.value);
+            });
+        });
+
+        let basePension = 0;// 养老保险
+        let baseMedical = 0;  // 医疗保险
+        let baseUnemployment = 0;  // 失业
+        let baseInjury = 0;  // 工伤保险
+        let baseMaternity = 0;  // 生育保险
+
+        let pensionRate = 0.004;  // 养老保险比例
+        let medicalRate = 0.004;  // 医疗保险比例
+        let unemploymentRate = 0.004;  // 失业保险
+
+        let companyPensionRate = 0.16; // 企业养老保险比例
+        let companyMedicalRate = 0.08;// 企业养老保险比例
+        let companyUnemploymentRate = 0.005;// 企业养老保险比例
+        let companyInjuryRate = 0.004;  // 企业工伤保险比例
+        let companyMaternityRate = 0.005;  // 企业生育保险比例
+
+        function updateInsuranceBases() {
+            const type = document.getElementById('insuranceType').value;
+            const infoDiv = document.getElementById('insuranceInfo');
+            const detailsDiv = document.getElementById('insuranceDetails');
+            const customBasesDiv = document.getElementById('customBases');
+
+            document.getElementById('result-group').style.display = 'none';
+            if (!type) {
+                infoDiv.style.display = 'none';
+                customBasesDiv.style.display = 'none';
+                return;
+            } else if (type === 'custom') {
+                infoDiv.style.display = 'none';
+                customBasesDiv.style.display = 'block';
+            } else {
+                infoDiv.style.display = 'block';
+                customBasesDiv.style.display = 'none';
+            }
+
+            let details = '';
+            let base = 0;
+            let rates = {
+                pension: { personal: 0, company: 0 },
+                medical: { personal: 0, company: 0 },
+                unemployment: { personal: 0, company: 0 }
+            };
+
+            switch (type) {
+                case 'shenhu':
+                    details = `
+                        <p>养老保险基数：4492，个人缴费比例：8%，单位缴费比例：17%</p>
+                        <p>医疗保险基数：6733，个人缴费比例：2%，单位缴费比例：5%</p>
+                        <p>失业保险基数：2520，个人缴费比例：0.3%，单位缴费比例：0.7%</p>
+                        <p>工伤保险基数：2520，单位缴费比例：0.4%</p>
+                        <p>生育保险基数：6733，单位缴费比例：0.5%</p>
+                    `;
+                    basePension = 4492;      // 养老保险基数
+                    baseMedical = 6733;  // 医疗保险基数
+                    baseUnemployment = 2520;  // 失业保险基数
+                    baseInjury = 2520;   // 工伤保险基数
+                    baseMaternity = 6733; // 生育保险基数
+
+                    pensionRate = 0.08;      // 养老保险个人比例 8%
+                    medicalRate = 0.02;      // 医疗保险个人比例 2%
+                    unemploymentRate = 0.003; // 失业保险个人比例 0.3%
+
+                    companyPensionRate = 0.17;    // 企业养老保险比例 17%
+                    companyMedicalRate = 0.05;    // 企业医疗保险比例 5%
+                    companyUnemploymentRate = 0.007; // 企业失业保险比例 0.7%
+                    companyInjuryRate = 0.004;    // 企业工伤保险比例 0.4%
+                    companyMaternityRate = 0.005;  // 企业生育保险比例 0.5%
+
+                    break;
+                case 'feishen1':
+                    details = `
+                        <p>养老保险基数：4492，个人缴费比例：8%，单位缴费比例：16%</p>
+                        <p>医疗保险基数：6733，个人缴费比例：2%，单位缴费比例：5%</p>
+                        <p>失业保险基数：2520，个人缴费比例：0.3%，单位缴费比例：0.7%</p>
+                        <p>工伤保险基数：2520，单位缴费比例：0.4%</p>
+                        <p>生育保险基数：6733，单位缴费比例：0.5%</p>
+                    `;
+                    basePension = 4492;      // 养老保险基数
+                    baseMedical = 6733;  // 医疗保险基数
+                    baseUnemployment = 2520;  // 失业保险基数
+                    baseInjury = 2520;   // 工伤保险基数
+                    baseMaternity = 6733; // 生育保险基数
+
+                    pensionRate = 0.08;      // 养老保险个人比例 8%
+                    medicalRate = 0.02;      // 医疗保险个人比例 2%
+                    unemploymentRate = 0.003; // 失业保险个人比例 0.3%
+
+                    companyPensionRate = 0.16;    // 企业养老保险比例 16%
+                    companyMedicalRate = 0.05;    // 企业医疗保险比例 5%
+                    companyUnemploymentRate = 0.007; // 企业失业保险比例 0.7%
+                    companyInjuryRate = 0.004;    // 企业工伤保险比例 0.4%
+                    companyMaternityRate = 0.005;  // 企业生育保险比例 0.5%
+                    break;
+                case 'feishen2':
+                    details = `
+                        <p>养老保险基数：4492，个人缴费比例：8%，单位缴费比例：16%</p>
+                        <p>医疗保险基数：6733，个人缴费比例：0.5%，单位缴费比例：1.5%</p>
+                        <p>失业保险基数：2520，个人缴费比例：0.3%，单位缴费比例：0.7%</p>
+                        <p>工伤保险基数：2520，单位缴费比例：0.4%</p>
+                        <p>生育保险基数：6733，单位缴费比例：0.5%</p>
+                    `;
+                    basePension = 4492;      // 养老保险基数
+                    baseMedical = 6733;  // 医疗保险基数
+                    baseUnemployment = 2520;  // 失业保险基数
+                    baseInjury = 2520;   // 工伤保险基数
+                    baseMaternity = 6733; // 生育保险基数
+
+                    pensionRate = 0.08;      // 养老保险个人比例 8%
+                    medicalRate = 0.005;     // 医疗保险个人比例 0.5%
+                    unemploymentRate = 0.003; // 失业保险个人比例 0.3%
+
+                    companyPensionRate = 0.16;    // 企业养老保险比例 16%
+                    companyMedicalRate = 0.015;   // 企业医疗保险比例 1.5%
+                    companyUnemploymentRate = 0.007; // 企业失业保险比例 0.7%
+                    companyInjuryRate = 0.004;    // 企业工伤保险比例 0.4%
+                    companyMaternityRate = 0.005;  // 企业生育保险比例 0.5%
+                    break;
+                case 'custom':
+
+                    break
+            }
+
+            detailsDiv.innerHTML = details;
+        }
+
+        function getCustomValues() {
+            if (document.getElementById('insuranceType').value === 'custom') {
+                // 获取自定义基数
+                basePension = parseFloat(document.getElementById('customPensionBase').value);
+                baseMedical = parseFloat(document.getElementById('customMedicalBase').value);
+                baseUnemployment = parseFloat(document.getElementById('customUnemploymentBase').value);
+                baseInjury = parseFloat(document.getElementById('customInjuryBase').value);
+                baseMaternity = parseFloat(document.getElementById('customMaternityBase').value);
+
+                // 获取自定义比例
+                pensionRate = parseFloat(document.getElementById('customPensionRate').value) / 100;
+                medicalRate = parseFloat(document.getElementById('customMedicalRate').value) / 100;
+                unemploymentRate = parseFloat(document.getElementById('customUnemploymentRate').value) / 100;
+
+                companyPensionRate = parseFloat(document.getElementById('customCompanyPensionRate').value) / 100;
+                companyMedicalRate = parseFloat(document.getElementById('customCompanyMedicalRate').value) / 100;
+                companyUnemploymentRate = parseFloat(document.getElementById('customCompanyUnemploymentRate').value) / 100;
+                companyInjuryRate = parseFloat(document.getElementById('customCompanyInjuryRate').value) / 100;
+                companyMaternityRate = parseFloat(document.getElementById('customCompanyMaternityRate').value) / 100;
+            }
+        }
+        function updateTableHeaders() {
+            // 更新个人部分比例
+            document.querySelectorAll('.pension-rate').forEach(span => {
+                span.textContent = (pensionRate * 100).toFixed(1);
+            });
+            document.querySelectorAll('.medical-rate').forEach(span => {
+                span.textContent = (medicalRate * 100).toFixed(1);
+            });
+            document.querySelectorAll('.unemployment-rate').forEach(span => {
+                span.textContent = (unemploymentRate * 100).toFixed(1);
+            });
+            document.querySelectorAll('.fund-rate').forEach(span => {
+                span.textContent = document.getElementById('fundRate').value;
+            });
+
+            // 更新公司部分比例
+            const tables = document.querySelectorAll('#resultTable, #salaryTable');
+            tables.forEach(table => {
+                const headers = table.querySelectorAll('tr:nth-child(3) th');
+                headers[6].textContent = `养老(${(companyPensionRate * 100).toFixed(1)}%)`;
+                headers[7].textContent = `医疗(${(companyMedicalRate * 100).toFixed(1)}%)`;
+                headers[8].textContent = `失业(${(companyUnemploymentRate * 100).toFixed(1)}%)`;
+                headers[9].textContent = `工伤(${(companyInjuryRate * 100).toFixed(1)}%)`;
+                headers[10].textContent = `生育(${(companyMaternityRate * 100).toFixed(1)}%)`;
+            });
+        }
+
+        // 修改 calculate 函数中的公司缴费比例
+        function calculate() {
+            // 在计算开始前获取自定义值
+            getCustomValues();
+            updateTableHeaders();
+            document.getElementById('result-group').style.display = 'block';
+            const startMonth = new Date(document.getElementById('startMonth').value);
+            const endMonth = new Date(document.getElementById('endMonth').value);
+            const averageSalary = parseFloat(document.getElementById('averageSalary').value);
+
+
+            const fundRate = parseFloat(document.getElementById('fundRate').value) / 100;
+            const fundBase = parseFloat(document.getElementById('fundBase').value);
+
+            // 添加公司缴纳比例
+
+
+            // 清空两个表格
+            document.getElementById('resultTable').getElementsByTagName('tbody')[0].innerHTML = '';
+            document.getElementById('salaryTable').getElementsByTagName('tbody')[0].innerHTML = '';
+
+            // 清空差额表格
+            document.getElementById('differenceTable').getElementsByTagName('tbody')[0].innerHTML = '';
+
+            // 初始化合计变量
+            let totalPersonPensionDiff = 0;
+            let totalPersonMedicalDiff = 0;
+            let totalPersonUnemploymentDiff = 0;
+            let totalPersonFundDiff = 0;
+            let totalCompanyPensionDiff = 0;
+            let totalCompanyMedicalDiff = 0;
+            let totalCompanyUnemploymentDiff = 0;
+            let totalCompanyFundDiff = 0;
+            let totalDifference = 0;
+
+            let months = 0;
+            let totalBasePension = 0, totalBaseMedical = 0, totalBaseUnemployment = 0, totalBaseFund = 0;
+            let totalBaseCompanyPension = 0, totalBaseCompanyMedical = 0, totalBaseCompanyUnemployment = 0, totalBaseCompanyInjury = 0, totalBaseCompanyMaternity = 0, totalBaseCompanyFund = 0;
+            let totalSalaryPension = 0, totalSalaryMedical = 0, totalSalaryUnemployment = 0, totalSalaryFund = 0;
+            let totalSalaryCompanyPension = 0, totalSalaryCompanyMedical = 0, totalSalaryCompanyUnemployment = 0, totalSalaryCompanyInjury = 0, totalSalaryCompanyMaternity = 0, total, totalSalaryCompanyFund = 0;
+
+            let currentMonth = new Date(startMonth);
+            while (currentMonth <= endMonth) {
+                months++;
+
+                // 按基数缴纳计算
+                totalBasePension += basePension * pensionRate;
+                totalBaseMedical += baseMedical * medicalRate;
+                totalBaseUnemployment += baseUnemployment * unemploymentRate;
+                totalBaseFund += fundBase * fundRate;
+
+                totalBaseCompanyPension += basePension * companyPensionRate;
+                totalBaseCompanyMedical += baseMedical * companyMedicalRate;
+                totalBaseCompanyUnemployment += baseUnemployment * companyUnemploymentRate;
+                totalBaseCompanyInjury += baseInjury * companyInjuryRate;
+                totalBaseCompanyMaternity += baseMaternity * companyMaternityRate;
+                totalBaseCompanyFund += fundBase * fundRate;
+
+                // 按工资缴纳计算
+                totalSalaryPension += averageSalary * pensionRate;
+                totalSalaryMedical += averageSalary * medicalRate;
+                totalSalaryUnemployment += averageSalary * unemploymentRate;
+                totalSalaryFund += averageSalary * fundRate;
+
+                totalSalaryCompanyPension += averageSalary * companyPensionRate;
+                totalSalaryCompanyMedical += averageSalary * companyMedicalRate;
+                totalSalaryCompanyUnemployment += averageSalary * companyUnemploymentRate;
+                totalSalaryCompanyInjury += averageSalary * companyInjuryRate;
+                totalSalaryCompanyMaternity += averageSalary * companyMaternityRate;
+                totalSalaryCompanyFund += averageSalary * fundRate;
+
+                currentMonth.setMonth(currentMonth.getMonth() + 1);
+            }
+
+            // 计算个人和公司总计
+            const basePersonTotal = totalBasePension + totalBaseMedical + totalBaseUnemployment + totalBaseFund;
+            const baseCompanyTotal = totalBaseCompanyPension + totalBaseCompanyMedical + totalBaseCompanyUnemployment + totalBaseCompanyInjury + totalBaseCompanyMaternity + totalBaseCompanyFund;
+            const salaryPersonTotal = totalSalaryPension + totalSalaryMedical + totalSalaryUnemployment + totalSalaryFund;
+            const salaryCompanyTotal = totalSalaryCompanyPension + totalSalaryCompanyMedical + totalSalaryCompanyUnemployment + totalSalaryCompanyInjury + totalSalaryCompanyMaternity + totalSalaryCompanyFund;
+
+            // 输出基数缴纳月平均和总计
+            // 添加月平均行
+            const baseAvgRow = document.getElementById('resultTable').getElementsByTagName('tbody')[0].insertRow();
+            baseAvgRow.insertCell().textContent = "月平均";
+            // baseAvgRow.insertCell().textContent = insuranceBase.toFixed(2);
+            baseAvgRow.insertCell().textContent = (totalBasePension / months).toFixed(2);
+            baseAvgRow.insertCell().textContent = (totalBaseMedical / months).toFixed(2);
+            baseAvgRow.insertCell().textContent = (totalBaseUnemployment / months).toFixed(2);
+            baseAvgRow.insertCell().textContent = "/";
+            baseAvgRow.insertCell().textContent = "/";
+            baseAvgRow.insertCell().textContent = (totalBaseFund / months).toFixed(2);
+            // baseAvgRow.insertCell().textContent = insuranceBase.toFixed(2);
+            baseAvgRow.insertCell().textContent = (totalBaseCompanyPension / months).toFixed(2);
+            baseAvgRow.insertCell().textContent = (totalBaseCompanyMedical / months).toFixed(2);
+            baseAvgRow.insertCell().textContent = (totalBaseCompanyUnemployment / months).toFixed(2);
+            baseAvgRow.insertCell().textContent = (totalBaseCompanyInjury / months).toFixed(2);
+            baseAvgRow.insertCell().textContent = (totalBaseCompanyMaternity / months).toFixed(2);
+            baseAvgRow.insertCell().textContent = (totalBaseCompanyFund / months).toFixed(2);
+            baseAvgRow.insertCell().textContent = (basePersonTotal / months).toFixed(2);
+            baseAvgRow.insertCell().textContent = (baseCompanyTotal / months).toFixed(2);
+
+            // 添加总计行
+            const baseRow = document.getElementById('resultTable').getElementsByTagName('tbody')[0].insertRow();
+            baseRow.insertCell().textContent = "总计";
+            // baseRow.insertCell().textContent = (insuranceBase * months).toFixed(2);
+            baseRow.insertCell().textContent = totalBasePension.toFixed(2);
+            baseRow.insertCell().textContent = totalBaseMedical.toFixed(2);
+            baseRow.insertCell().textContent = totalBaseUnemployment.toFixed(2);
+            baseRow.insertCell().textContent = "/"
+            baseRow.insertCell().textContent = "/"
+            baseRow.insertCell().textContent = totalBaseFund.toFixed(2);
+            // baseRow.insertCell().textContent = (insuranceBase * months).toFixed(2);
+            baseRow.insertCell().textContent = totalBaseCompanyPension.toFixed(2);
+            baseRow.insertCell().textContent = totalBaseCompanyMedical.toFixed(2);
+            baseRow.insertCell().textContent = totalBaseCompanyUnemployment.toFixed(2);
+            baseRow.insertCell().textContent = totalBaseCompanyInjury.toFixed(2);
+            baseRow.insertCell().textContent = totalBaseCompanyMaternity.toFixed(2);
+            baseRow.insertCell().textContent = totalBaseCompanyFund.toFixed(2);
+            baseRow.insertCell().textContent = basePersonTotal.toFixed(2);
+            baseRow.insertCell().textContent = baseCompanyTotal.toFixed(2);
+
+            // 输出工资缴纳月平均和总计
+            // 添加月平均行
+            const salaryAvgRow = document.getElementById('salaryTable').getElementsByTagName('tbody')[0].insertRow();
+            salaryAvgRow.insertCell().textContent = "月平均";
+            // salaryAvgRow.insertCell().textContent = averageSalary.toFixed(2);
+            salaryAvgRow.insertCell().textContent = (totalSalaryPension / months).toFixed(2);
+            salaryAvgRow.insertCell().textContent = (totalSalaryMedical / months).toFixed(2);
+            salaryAvgRow.insertCell().textContent = (totalSalaryUnemployment / months).toFixed(2);
+            salaryAvgRow.insertCell().textContent = "/";
+            salaryAvgRow.insertCell().textContent = "/";
+            salaryAvgRow.insertCell().textContent = (totalSalaryFund / months).toFixed(2);
+            // salaryAvgRow.insertCell().textContent = averageSalary.toFixed(2);
+            salaryAvgRow.insertCell().textContent = (totalSalaryCompanyPension / months).toFixed(2);
+            salaryAvgRow.insertCell().textContent = (totalSalaryCompanyMedical / months).toFixed(2);
+            salaryAvgRow.insertCell().textContent = (totalSalaryCompanyUnemployment / months).toFixed(2);
+            salaryAvgRow.insertCell().textContent = (totalSalaryCompanyInjury / months).toFixed(2);
+            salaryAvgRow.insertCell().textContent = (totalSalaryCompanyMaternity / months).toFixed(2);
+            salaryAvgRow.insertCell().textContent = (totalSalaryCompanyFund / months).toFixed(2);
+            salaryAvgRow.insertCell().textContent = (salaryPersonTotal / months).toFixed(2);
+            salaryAvgRow.insertCell().textContent = (salaryCompanyTotal / months).toFixed(2);
+
+            // 添加总计行
+            const salaryRow = document.getElementById('salaryTable').getElementsByTagName('tbody')[0].insertRow();
+            salaryRow.insertCell().textContent = "总计";
+            // salaryRow.insertCell().textContent = (averageSalary * months).toFixed(2);
+            salaryRow.insertCell().textContent = totalSalaryPension.toFixed(2);
+            salaryRow.insertCell().textContent = totalSalaryMedical.toFixed(2);
+            salaryRow.insertCell().textContent = totalSalaryUnemployment.toFixed(2);
+            salaryRow.insertCell().textContent = "/";
+            salaryRow.insertCell().textContent = "/";
+            salaryRow.insertCell().textContent = totalSalaryFund.toFixed(2);
+            // salaryRow.insertCell().textContent = (averageSalary * months).toFixed(2);
+            salaryRow.insertCell().textContent = totalSalaryCompanyPension.toFixed(2);
+            salaryRow.insertCell().textContent = totalSalaryCompanyMedical.toFixed(2);
+            salaryRow.insertCell().textContent = totalSalaryCompanyUnemployment.toFixed(2);
+            salaryRow.insertCell().textContent = totalSalaryCompanyInjury.toFixed(2);
+            salaryRow.insertCell().textContent = totalSalaryCompanyMaternity.toFixed(2);
+            salaryRow.insertCell().textContent = totalSalaryCompanyFund.toFixed(2);
+            salaryRow.insertCell().textContent = salaryPersonTotal.toFixed(2);
+            salaryRow.insertCell().textContent = salaryCompanyTotal.toFixed(2);
+
+
+            // 添加平均差额
+            const diffAvgRow = document.getElementById('differenceTable').getElementsByTagName('tbody')[0].insertRow();
+            diffAvgRow.insertCell().textContent = "月平均";
+            diffAvgRow.insertCell().textContent = ((totalSalaryPension - totalBasePension) / months).toFixed(2);
+            diffAvgRow.insertCell().textContent = ((totalSalaryMedical - totalBaseMedical) / months).toFixed(2);
+            diffAvgRow.insertCell().textContent = ((totalSalaryUnemployment - totalBaseUnemployment) / months).toFixed(2);
+            diffAvgRow.insertCell().textContent = "/";
+            diffAvgRow.insertCell().textContent = "/";
+            diffAvgRow.insertCell().textContent = ((totalSalaryFund - totalBaseFund) / months).toFixed(2);
+            diffAvgRow.insertCell().textContent = ((salaryPersonTotal - basePersonTotal) / months).toFixed(2);
+            diffAvgRow.insertCell().textContent = ((totalSalaryCompanyPension - totalBaseCompanyPension) / months).toFixed(2);
+            diffAvgRow.insertCell().textContent = ((totalSalaryCompanyMedical - totalBaseCompanyMedical) / months).toFixed(2);
+            diffAvgRow.insertCell().textContent = ((totalSalaryCompanyUnemployment - totalBaseCompanyUnemployment) / months).toFixed(2);
+            diffAvgRow.insertCell().textContent = ((totalSalaryCompanyInjury - totalBaseCompanyInjury) / months).toFixed(2);
+            diffAvgRow.insertCell().textContent = ((totalSalaryCompanyMaternity - totalBaseCompanyMaternity) / months).toFixed(2);
+            diffAvgRow.insertCell().textContent = ((totalSalaryCompanyFund - totalBaseCompanyFund) / months).toFixed(2);
+            diffAvgRow.insertCell().textContent = ((salaryCompanyTotal - baseCompanyTotal) / months).toFixed(2);
+            // 输出差额总计
+            const diffRow = document.getElementById('differenceTable').getElementsByTagName('tbody')[0].insertRow();
+            diffRow.insertCell().textContent = "总计";
+            diffRow.insertCell().textContent = (totalSalaryPension - totalBasePension).toFixed(2);
+            diffRow.insertCell().textContent = (totalSalaryMedical - totalBaseMedical).toFixed(2);
+            diffRow.insertCell().textContent = (totalSalaryUnemployment - totalBaseUnemployment).toFixed(2);
+            diffRow.insertCell().textContent = "/";
+            diffRow.insertCell().textContent = "/";
+            diffRow.insertCell().textContent = (totalSalaryFund - totalBaseFund).toFixed(2);
+            diffRow.insertCell().textContent = (salaryPersonTotal - basePersonTotal).toFixed(2);
+            diffRow.insertCell().textContent = (totalSalaryCompanyPension - totalBaseCompanyPension).toFixed(2);
+            diffRow.insertCell().textContent = (totalSalaryCompanyMedical - totalBaseCompanyMedical).toFixed(2);
+            diffRow.insertCell().textContent = (totalSalaryCompanyUnemployment - totalBaseCompanyUnemployment).toFixed(2);
+            diffRow.insertCell().textContent = (totalSalaryCompanyInjury - totalBaseCompanyInjury).toFixed(2);
+            diffRow.insertCell().textContent = (totalSalaryCompanyMaternity - totalBaseCompanyMaternity).toFixed(2);
+            diffRow.insertCell().textContent = (totalSalaryCompanyFund - totalBaseCompanyFund).toFixed(2);
+            diffRow.insertCell().textContent = (salaryCompanyTotal - baseCompanyTotal).toFixed(2);
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>赔偿计算</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: inline-block;
+            width: 150px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>赔偿计算</h1>
+
+
+    <div class="input-group" id="dateInput">
+        <label>参加工作时间：</label>
+        <input type="date" id="startDate">
+    </div>
+
+    <div class="input-group">
+        <label>入职日期：</label>
+        <input type="date" id="enterDate">
+    </div>
+
+    <div class="input-group">
+        <label>离项日期：</label>
+        <input type="date" id="projectLeaveDate">
+    </div>
+
+    <div class="input-group">
+        <label>全薪工资：</label>
+        <input type="number" id="fullSalary" min="0">
+    </div>
+
+    <div class="input-group">
+        <label>基本工资：</label>
+        <input type="number" id="baseSalary" min="0">
+    </div>
+
+    <div class="input-group">
+        <label>赔偿倍数：</label>
+        <select id="compensationType">
+            <option value="custom">自定义</option>
+            <option value="n" selected>N</option>
+            <option value="n1">N+1</option>
+            <option value="2n">2N</option>
+        </select>
+        <input type="number" id="customCompensation" min="0.5" step="0.5" value="1.5" style="display: none;">
+    </div>
+
+    <div class="input-group">
+        <label>展示月数：</label>
+        <input type="number" id="copyMonths" min="0" value="12">
+    </div>
+
+    <button onclick="calculate()">计算赔偿</button>
+
+    <table id="resultTable">
+        <thead>
+            <tr>
+                <th>月份</th>
+                <th>当月工资</th>
+                <th>平均工资</th>
+                <th>N</th>
+                <th>赔偿金额</th>
+                <th>日工资<br>(平均工资÷21.75)</th>
+                <th>年假天数</th>
+                <th>年假折算金额<br>(3倍日工资)</th>
+                <th>合计</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <script>
+        // 页面加载时恢复上次的输入值
+        window.onload = function () {
+            const inputs = ['startDate', 'enterDate', 'projectLeaveDate', 'fullSalary', 'baseSalary', 'compensationType', 'customCompensation', 'copyMonths'];
+            inputs.forEach(id => {
+                const value = localStorage.getItem(id);
+                if (value) {
+                    document.getElementById(id).value = value;
+                }
+            });
+
+            // 显示/隐藏自定义赔偿倍数输入框
+            if (document.getElementById('compensationType').value === 'custom') {
+                document.getElementById('customCompensation').style.display = 'inline';
+            }
+        };
+
+        // 监听输入变化并保存
+        ['startDate', 'enterDate', 'projectLeaveDate', 'fullSalary', 'baseSalary', 'compensationType', 'customCompensation', 'copyMonths'].forEach(id => {
+            document.getElementById(id).addEventListener('change', function () {
+                localStorage.setItem(id, this.value);
+            });
+        });
+
+        function calculate() {
+            const fullSalary = parseFloat(document.getElementById('fullSalary').value);
+            const baseSalary = parseFloat(document.getElementById('baseSalary').value);
+            const enterDate = new Date(document.getElementById('enterDate').value);
+            const projectLeaveDate = new Date(document.getElementById('projectLeaveDate').value);
+            const startDate = new Date(document.getElementById('startDate').value);
+
+            // 获取复制月数，默认为12个月
+            const COUNT = document.getElementById('copyMonths')?.value || 12;
+            // 根据用户输入的结束日期计算工作年限
+            const today = new Date();
+            const workYears = (today.getFullYear() - startDate.getFullYear()) +
+                (today.getMonth() - startDate.getMonth()) / 12;
+
+            // 计算在职时长（用于赔偿）
+
+
+            // 根据选择计算赔偿倍数
+            let compensationMultiplier;
+            const compensationType = document.getElementById('compensationType').value;
+
+
+            // 计算年假基数
+            let annualLeave;
+            if (workYears >= 20) {
+                annualLeave = 15;
+            } else if (workYears >= 10) {
+                annualLeave = 10;
+            } else {
+                annualLeave = 5;
+            }
+
+            // 清空表格
+            const tbody = document.getElementById('resultTable').getElementsByTagName('tbody')[0];
+            tbody.innerHTML = '';
+
+            // 计算未来12个月的赔偿
+            let totalCompensation = 0;
+            let accumulatedAnnualLeave = 0; // 累计年假天数
+
+            // 从入职日期开始计算每月工资
+            const monthlyResults = [];
+            let currentDate = new Date(enterDate);
+
+            // 计算到今天为止的每个月工资
+            while (currentDate <= new Date(today.getFullYear(), today.getMonth() + COUNT, today.getDate())) {
+                // 判断当前月是否是离项月
+                const isLeaveMonth = currentDate.getFullYear() === projectLeaveDate.getFullYear() &&
+                    currentDate.getMonth() === projectLeaveDate.getMonth();
+
+                let monthlySalary;
+                // 判断是否是入职第一个月
+                if (currentDate.getFullYear() === enterDate.getFullYear() &&
+                    currentDate.getMonth() === enterDate.getMonth() && currentDate.getDate()!==1) {
+                    // 获取当月总天数
+                    const daysInMonth = new Date(currentDate.getFullYear(),
+                        currentDate.getMonth() + 1, 0).getDate();
+
+                    // 计算入职后的工作天数
+                    // 计算从入职日期到月底的工作日天数（不含周六日）
+                    let daysAfterEnter = 0;
+                    const currentDay = new Date(enterDate);
+                    const lastDay = new Date(currentDay.getFullYear(), currentDay.getMonth() + 1, 0);
+                    
+                    while (currentDay <= lastDay) {
+                        // 判断是否为工作日（0是周日，6是周六）
+                        if (currentDay.getDay() !== 0 && currentDay.getDay() !== 6) {
+                            daysAfterEnter++;
+                        }
+                        currentDay.setDate(currentDay.getDate() + 1);
+                    }
+                    
+                    // 按比例计算入职月工资
+                    monthlySalary = (fullSalary / 21.75) * daysAfterEnter;
+                } else if (isLeaveMonth) {
+                    // 获取当月总天数
+                    const daysInMonth = new Date(currentDate.getFullYear(),
+                        currentDate.getMonth() + 1, 0).getDate();
+
+                    // 计算离项前的工作天数和离项后的工作天数
+                    const daysBeforeLeave = projectLeaveDate.getDate();
+                    const daysAfterLeave = daysInMonth - daysBeforeLeave;
+
+                    // 按比例计算离项前后的工资
+                    const salaryBeforeLeave = (fullSalary / daysInMonth) * daysBeforeLeave;
+                    const salaryAfterLeave = (baseSalary / daysInMonth) * daysAfterLeave;
+
+                    // 当月工资为离项前后工资之和
+                    monthlySalary = salaryBeforeLeave + salaryAfterLeave;
+                } else {
+                    // 非离项月，根据日期判断使用全薪或基本工资
+                    monthlySalary = currentDate <= projectLeaveDate ? fullSalary : baseSalary;
+                }
+
+                // 将当月工资添加到记录中
+                monthlyResults.push({
+                    date: new Date(currentDate),
+                    salary: monthlySalary
+                });
+
+                // 移到下一个月
+                currentDate.setMonth(currentDate.getMonth() + 1);
+            }
+            for (let index = 0; index < COUNT; index++) {
+                const targetMonth = today.getMonth() + index;
+                const position = monthlyResults.findIndex(result =>
+                    result.date.getMonth() === targetMonth % 12 &&
+                    result.date.getFullYear() === today.getFullYear() + Math.floor(targetMonth / 12)
+                );
+                if (position < 0) continue;
+                const monthResult = monthlyResults[position]
+                const row = tbody.insertRow();
+
+                // 格式化日期为年月
+                const monthStr = `${monthResult.date.getFullYear()}-${(monthResult.date.getMonth() + 1).toString().padStart(2, '0')}`;
+
+                // 计算年平均工资（使用当前月工资）
+                const currentSalary = monthResult.salary;
+                // 计算当年的平均工资
+                const start = position - 12 > 0 ? position - 12 : 0;
+                const yearlyAverageSalary = monthlyResults.slice(start, position + 1).reduce((sum, result) => sum + result.salary, 0) / (position + 1 - start)
+
+                // 计算当月年假天数（总天数/12）
+                // 计算从2025.01.01到当前月的月数
+                const monthsSince2025 = (monthResult.date.getFullYear() - 2025) * 12 + monthResult.date.getMonth() + 1;
+                const monthlyAnnualLeave = Math.floor(monthsSince2025 > 0 ? (annualLeave / 12) * monthsSince2025 : 0);
+
+                const employmentMonths = (monthResult.date.getFullYear() - enterDate.getFullYear()) * 12 +
+                    (monthResult.date.getMonth() - enterDate.getMonth());
+                const N = Math.floor(employmentMonths / 6) * 0.5 + 0.5;
+                // 计算年假折算金额
+                const annualLeaveAmount = (yearlyAverageSalary / 21.75) * monthlyAnnualLeave;
+
+                // 计算当月赔偿金额
+                if (compensationType === 'custom') {
+                    compensationMultiplier = parseFloat(document.getElementById('customCompensation').value);
+                } else if (compensationType === '2n') {
+                    compensationMultiplier = N * 2;
+                } else if (compensationType === 'n1') {
+                    compensationMultiplier = N + 1;
+                } else { // n
+                    compensationMultiplier = N;
+                }
+                const monthlyCompensation = yearlyAverageSalary * compensationMultiplier;
+
+                // 计算当月合计金额
+                const totalAmount = monthResult.salary + annualLeaveAmount + monthlyCompensation;
+
+                // 累计总赔偿金额
+                totalCompensation += totalAmount;
+
+                // 填充表格单元格
+                row.insertCell(0).textContent = monthStr;
+                row.insertCell(1).textContent = currentSalary.toFixed(2);
+                row.insertCell(2).textContent = yearlyAverageSalary.toFixed(2);
+                row.insertCell(3).textContent = N;
+                row.insertCell(4).textContent = monthlyCompensation.toFixed(2);
+                row.insertCell(5).textContent = (yearlyAverageSalary / 21.75).toFixed(2);
+                row.insertCell(6).textContent = monthlyAnnualLeave.toFixed(0);
+                row.insertCell(7).textContent = annualLeaveAmount.toFixed(2);
+                row.insertCell(8).textContent = totalAmount.toFixed(2);
+            };
+        }
+
+
+    </script>
+</body>
+
+</html>
